@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Практическая работа: Sentinel-2 в QGIS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #fafaf8;
+            --surface: #ffffff;
+            --text: #1a1a1a;
+            --text-secondary: #555;
+            --accent: #1565c0;
+            --accent-light: #e3f0fc;
+            --green: #2e7d32;
+            --green-light: #e8f5e9;
+            --amber: #f0c040;
+            --amber-light: #fff8e1;
+            --purple: #6a1b9a;
+            --purple-light: #f3e5f5;
+            --border: #e0e0e0;
+            --code-bg: #f0f0ec;
+            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --radius: 6px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Open Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        /* ── Hero ── */
+        .hero {
+            background: linear-gradient(135deg, #0d47a1 0%, #1565c0 40%, #1e88e5 100%);
+            color: white;
+            padding: 3rem 1.5rem 2.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(circle at 20% 80%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255,255,255,0.08) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .hero-inner {
+            max-width: 780px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        .hero h1 {
+            font-family: 'Source Serif 4', serif;
+            font-size: clamp(1.6rem, 4vw, 2.2rem);
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 0.75rem;
+        }
+        .hero p {
+            font-size: 1.05rem;
+            opacity: 0.9;
+            max-width: 600px;
+        }
+        .hero-meta {
+            margin-top: 1.25rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+        .hero-meta span {
+            background: rgba(255,255,255,0.15);
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+        }
+
+        /* ── Main content ── */
+        .content {
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        h2 {
+            font-family: 'Source Serif 4', serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 2px solid var(--accent);
+        }
+        h2:first-child { margin-top: 0; }
+
+        h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin: 1.75rem 0 0.5rem;
+        }
+
+        p { margin: 0.6rem 0; }
+
+        a {
+            color: var(--accent);
+            text-decoration-thickness: 1px;
+            text-underline-offset: 2px;
+        }
+        a:hover { text-decoration-thickness: 2px; }
+
+        ol, ul {
+            margin: 0.5rem 0 0.75rem 1.5rem;
+        }
+        li { margin-bottom: 0.35rem; }
+
+        code {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.88em;
+            background: var(--code-bg);
+            padding: 0.15em 0.4em;
+            border-radius: 3px;
+        }
+
+        /* ── File tree block ── */
+        .file-tree {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius);
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.9;
+            overflow-x: auto;
+            box-shadow: var(--shadow);
+        }
+
+        /* ── Formula block ── */
+        .formula {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.9rem 1.25rem;
+            margin: 1rem 0;
+            font-family: 'Fira Code', monospace;
+            font-size: 1rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+        .formula.green { border-left: 4px solid var(--green); }
+        .formula.blue { border-left: 4px solid var(--accent); }
+        .formula.purple { border-left: 4px solid var(--purple); }
+        .formula.big { font-size: 1.15rem; }
+
+        /* ── Callout boxes ── */
+        .callout {
+            border-radius: var(--radius);
+            padding: 0.9rem 1rem 0.9rem 1rem;
+            margin: 1rem 0;
+            font-size: 0.95rem;
+            line-height: 1.65;
+        }
+        .callout-icon {
+            font-size: 1.1rem;
+            margin-right: 0.3rem;
+        }
+        .callout strong { display: inline; }
+
+        .callout.tip {
+            background: var(--green-light);
+            border-left: 4px solid var(--green);
+        }
+        .callout.warn {
+            background: var(--amber-light);
+            border-left: 4px solid var(--amber);
+        }
+        .callout.look {
+            background: #fff3e0;
+            border-left: 4px solid #ef6c00;
+        }
+        .callout.info {
+            background: var(--accent-light);
+            border-left: 4px solid var(--accent);
+        }
+
+        /* ── Tables ── */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1rem 0;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+            background: var(--surface);
+        }
+        thead tr { color: white; }
+        thead.blue { background: var(--accent); }
+        thead.green { background: var(--green); }
+        thead.purple { background: var(--purple); }
+        th, td {
+            padding: 0.6rem 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        tbody tr:nth-child(even) { background: #fafafa; }
+        td.mono { font-family: 'Fira Code', monospace; font-size: 0.82rem; }
+
+        /* ── Divider ── */
+        hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 2.5rem 0;
+        }
+
+        /* ── Section badge (Part 1, Part 2…) ── */
+        .section-badge {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 0.2rem 0.65rem;
+            border-radius: 100px;
+            margin-bottom: 0.35rem;
+        }
+        .section-badge.green { background: var(--green); }
+        .section-badge.purple { background: var(--purple); }
+        .section-badge.amber { background: #e65100; }
+
+        /* ── Summary / results box ── */
+        .summary-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+            box-shadow: var(--shadow);
+        }
+        .summary-box h3 {
+            margin-top: 0;
+            color: var(--text);
+        }
+        .summary-box ol {
+            margin-bottom: 0;
+        }
+
+        /* ── Image placeholder ── */
+        /*
+            Для вставки картинок используйте:
+            <figure class="img-block">
+                <img src="images/your-image.png" alt="Описание">
+                <figcaption>Подпись к изображению</figcaption>
+            </figure>
+        */
+        .img-block {
+            margin: 1.25rem 0;
+            text-align: center;
+        }
+        .img-block img {
+            max-width: 100%;
+            height: auto;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .img-block figcaption {
+            margin-top: 0.4rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* ── Video embed ── */
+        /*
+            Для вставки видео с RuTube используйте:
+            <div class="video-block">
+                <iframe src="https://rutube.ru/play/embed/VIDEO_ID" allowfullscreen></iframe>
+            </div>
+        */
+        .video-block {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 */
+            margin: 1.25rem 0;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            background: #000;
+        }
+        .video-block iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: none;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            .hero { padding: 2rem 1rem 1.75rem; }
+            .content { padding: 1.25rem 1rem 3rem; }
+            h2 { font-size: 1.3rem; }
+            .file-tree { font-size: 0.78rem; }
+            .hero-meta { flex-direction: column; gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="hero">
+    <div class="hero-inner">
+        <h1>Практическая работа: космоснимок Sentinel-2 в QGIS</h1>
+        <p>Загружаем каналы, собираем цветные композиции, считаем вегетационный индекс и делаем первую классификацию.</p>
+        <div class="hero-meta">
+            <span>Район: Тверь и окрестности</span>
+            <span>~1.5 часа</span>
+            <span>QGIS</span>
+        </div>
+    </div>
+</header>
+
+<main class="content">
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- ШПАРГАЛКА                                       -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <h2>Шпаргалка: структура файлов Sentinel-2</h2>
+
+    <p>Снимок, скачанный с <a href="https://browser.dataspace.copernicus.eu/" target="_blank" rel="noopener">Copernicus Browser</a>, — это набор папок и файлов. Нас интересует только небольшая часть из них.</p>
+
+    <p>Путь к данным выглядит примерно так:</p>
+
+    <div class="file-tree">
+        S2B_MSIL2A_20XX...<br>
+        &nbsp;&nbsp;└── GRANULE<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── L2A_T36VUN_...<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── IMG_DATA<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <strong>R10m</strong> &nbsp;← 10 м/пиксель<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <strong>R20m</strong> &nbsp;← 20 м/пиксель<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <strong>R60m</strong> &nbsp;← 60 м/пиксель
+    </div>
+
+    <p><strong>Каналы в папке R10m</strong> (основные для работы):</p>
+
+    <div class="table-wrap">
+        <table>
+            <thead class="blue">
+                <tr>
+                    <th>Файл</th>
+                    <th>Канал</th>
+                    <th>Диапазон</th>
+                    <th>Для чего полезен</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="mono">..._B02_10m.jp2</td>
+                    <td>B02 — Синий</td>
+                    <td>490 нм</td>
+                    <td>Естественные цвета, водные объекты</td>
+                </tr>
+                <tr>
+                    <td class="mono">..._B03_10m.jp2</td>
+                    <td>B03 — Зелёный</td>
+                    <td>560 нм</td>
+                    <td>Естественные цвета, растительность</td>
+                </tr>
+                <tr>
+                    <td class="mono">..._B04_10m.jp2</td>
+                    <td>B04 — Красный</td>
+                    <td>665 нм</td>
+                    <td>Естественные цвета, расчёт NDVI</td>
+                </tr>
+                <tr>
+                    <td class="mono">..._B08_10m.jp2</td>
+                    <td>B08 — Ближний ИК (NIR)</td>
+                    <td>842 нм</td>
+                    <td>Расчёт NDVI, ложные цвета</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p><strong>Каналы в папке R20m</strong> (для бонусного задания):</p>
+
+    <div class="table-wrap">
+        <table>
+            <thead class="purple">
+                <tr>
+                    <th>Файл</th>
+                    <th>Канал</th>
+                    <th>Диапазон</th>
+                    <th>Для чего полезен</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="mono">..._B11_20m.jp2</td>
+                    <td>B11 — SWIR</td>
+                    <td>1610 нм</td>
+                    <td>Застройка, голый грунт, влажность</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <strong>Совет:</strong> файлы Sentinel-2 имеют длинные названия вроде <code>T36VUN_20240715T083559_B04_10m.jp2</code>. Ориентируйтесь на фрагмент <strong>B02</strong>, <strong>B03</strong>, <strong>B04</strong>, <strong>B08</strong> в названии — это номер канала.
+    </div>
+
+    <hr>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- ЧАСТЬ 1                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <span class="section-badge">Часть 1</span>
+    <h2>Комбинации каналов (~30 мин)</h2>
+
+    <p>Каждый канал Sentinel-2 — это отдельное изображение в градациях серого. Чтобы получить цветную картинку, нужно совместить несколько каналов, назначив каждому свой цвет: красный, зелёный, синий (RGB). В зависимости от выбранных каналов получим разные «взгляды» на территорию.</p>
+
+    <h3>Шаг 1 — Загрузите каналы</h3>
+    <ol>
+        <li>Откройте QGIS и создайте новый проект.</li>
+        <li>Перейдите в папку снимка, найдите подпапку <strong>R10m</strong> (путь: <code>GRANULE → … → IMG_DATA → R10m</code>).</li>
+        <li>Перетащите в окно QGIS файлы каналов <strong>B02</strong>, <strong>B03</strong>, <strong>B04</strong>, <strong>B08</strong>.</li>
+    </ol>
+    <p>Каждый канал откроется как отдельный серый слой — это нормально.</p>
+
+    <!-- Место для скриншота:
+    <figure class="img-block">
+        <img src="images/step1-channels-loaded.png" alt="Каналы загружены в QGIS">
+        <figcaption>Четыре канала в панели слоёв — каждый отображается как серое изображение</figcaption>
+    </figure>
+    -->
+
+    <h3>Шаг 2 — Соберите изображение в естественных цветах</h3>
+    <ol>
+        <li>Откройте меню <strong>Растр → Прочее → Создать виртуальный растр</strong> (Build Virtual Raster).</li>
+        <li>Во входных слоях выберите <strong>B04</strong>, <strong>B03</strong>, <strong>B02</strong> — именно в таком порядке.</li>
+        <li>Поставьте галочку <strong>«Разместить каждый входной файл в отдельный канал»</strong> (Place each input file into a separate band).</li>
+        <li>Нажмите <strong>«Выполнить»</strong>.</li>
+    </ol>
+    <p>Появится новый слой. Откройте его свойства (правый клик → <strong>Свойства → Символика</strong>):</p>
+    <ol>
+        <li>Тип отображения: <strong>Многоканальное цветное</strong> (Multiband color).</li>
+        <li>Назначьте: Red = Band 1 (B04), Green = Band 2 (B03), Blue = Band 3 (B02).</li>
+        <li>Нажмите <strong>OK</strong>.</li>
+    </ol>
+    <p>Результат — изображение в <strong>естественных цветах</strong>. Вы увидите знакомые виды: Тверь, Волгу, леса и поля.</p>
+
+    <h3>Шаг 3 — Соберите изображение в ложных цветах</h3>
+    <ol>
+        <li>Повторите процедуру создания виртуального растра, но теперь выберите каналы: <strong>B08</strong>, <strong>B04</strong>, <strong>B03</strong>.</li>
+        <li>Не забудьте поставить галочку «Разместить каждый входной файл в отдельный канал».</li>
+        <li>В символике назначьте: Red = Band 1 (B08), Green = Band 2 (B04), Blue = Band 3 (B03).</li>
+    </ol>
+
+    <div class="callout look">
+        <span class="callout-icon">👀</span>
+        <strong>Обратите внимание:</strong> растительность стала <strong>ярко-красной</strong>, вода — чёрной, застройка — серо-голубой. Это происходит потому, что растения сильно отражают ближний инфракрасный свет (канал B08), а мы назначили этот канал на красный цвет.
+    </div>
+
+    <h3>Шаг 3.1 — Установите плагин MapSwipe Tool</h3>
+    <p>Переключать видимость слоёв вручную — неудобно. Плагин <strong>MapSwipe Tool</strong> позволяет «разрезать» экран шторкой и видеть два слоя одновременно.</p>
+    <ol>
+        <li>Меню <strong>Модули → Управление и установка модулей</strong>.</li>
+        <li>В строке поиска введите <strong>MapSwipe Tool</strong>.</li>
+        <li>Нажмите <strong>«Установить»</strong>.</li>
+        <li>После установки на панели инструментов появится иконка плагина (стрелки влево-вправо). Нажмите на неё.</li>
+        <li>Убедитесь, что слой с <strong>ложными цветами</strong> находится <strong>выше</strong> слоя с естественными цветами в панели слоёв.</li>
+        <li>Двигайте курсор по карте — шторка будет открывать нижний слой.</li>
+    </ol>
+
+    <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <strong>Совет:</strong> этот плагин пригодится и дальше — им удобно сравнивать NDVI с исходным снимком, маску растительности с ложными цветами и так далее. Запомните его!
+    </div>
+
+    <hr>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- ЧАСТЬ 2                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <span class="section-badge green">Часть 2</span>
+    <h2>Расчёт NDVI (~25 мин)</h2>
+
+    <p><strong>NDVI</strong> (Normalized Difference Vegetation Index) — вегетационный индекс, который показывает состояние растительности. Значения варьируются от −1 до +1:</p>
+
+    <div class="table-wrap">
+        <table>
+            <thead class="green">
+                <tr>
+                    <th>Значение NDVI</th>
+                    <th>Что это</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>меньше 0</td>
+                    <td>Вода, облака, снег</td>
+                </tr>
+                <tr>
+                    <td>0 – 0.2</td>
+                    <td>Голый грунт, застройка, дороги</td>
+                </tr>
+                <tr>
+                    <td>0.2 – 0.4</td>
+                    <td>Разреженная растительность, газоны</td>
+                </tr>
+                <tr>
+                    <td>0.4 – 0.6</td>
+                    <td>Умеренная растительность</td>
+                </tr>
+                <tr>
+                    <td>0.6 – 1.0</td>
+                    <td>Густая здоровая растительность</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p>Формула:</p>
+    <div class="formula green big">
+        NDVI = (B08 − B04) / (B08 + B04)
+    </div>
+
+    <h3>Шаг 4 — Откройте Растровый калькулятор</h3>
+    <ol>
+        <li>Меню <strong>Растр → Растровый калькулятор</strong> (Raster Calculator).</li>
+        <li>В поле выражения введите формулу. Имена слоёв вставляйте двойным кликом из списка слева:</li>
+    </ol>
+
+    <div class="formula green">
+        ("B08@1" - "B04@1") / ("B08@1" + "B04@1")
+    </div>
+
+    <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <strong>Важно:</strong> имена слоёв в вашем проекте могут отличаться — они зависят от полного названия файла. Не набирайте имя вручную, а <strong>кликайте по слою в списке</strong>, чтобы оно подставилось автоматически.
+    </div>
+
+    <ol start="3">
+        <li>Укажите имя выходного файла, например: <strong>NDVI_Tver.tif</strong>.</li>
+        <li>Нажмите <strong>OK</strong>.</li>
+    </ol>
+
+    <h3>Шаг 5 — Раскрасьте результат</h3>
+    <ol>
+        <li>Правый клик по слою NDVI → <strong>Свойства → Символика</strong>.</li>
+        <li>Тип отображения: <strong>Одноканальное псевдоцветное</strong> (Singleband pseudocolor).</li>
+        <li>Интерполяция: <strong>Линейная</strong>.</li>
+        <li>Цветовая рампа: выберите <strong>RdYlGn</strong> (красный → жёлтый → зелёный).</li>
+        <li>Установите Min = <strong>−0.1</strong>, Max = <strong>0.8</strong>.</li>
+        <li>Нажмите <strong>«Классифицировать»</strong>, затем <strong>OK</strong>.</li>
+    </ol>
+    <p>Результат — <strong>карта состояния растительности</strong>. Леса окрашены в зелёный, вода — в красный/тёмный, застройка — в жёлто-коричневый.</p>
+
+    <hr>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- ЧАСТЬ 3                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <span class="section-badge">Часть 3</span>
+    <h2>Пороговая классификация (~20 мин)</h2>
+
+    <p>Теперь из непрерывной шкалы NDVI мы создадим простую карту: <strong>растительность / не растительность</strong>. Для этого зададим пороговое значение — если NDVI выше порога, считаем пиксель растительностью.</p>
+
+    <h3>Шаг 6 — Создайте маску растительности</h3>
+    <ol>
+        <li>Снова откройте <strong>Растр → Растровый калькулятор</strong>.</li>
+        <li>Введите формулу:</li>
+    </ol>
+
+    <div class="formula blue">
+        "NDVI_Tver@1" >= 0.3
+    </div>
+
+    <ol start="3">
+        <li>Укажите имя выходного файла: <strong>Vegetation_mask.tif</strong>.</li>
+        <li>Нажмите <strong>OK</strong>.</li>
+    </ol>
+    <p>Получится бинарный растр: <strong>1</strong> = растительность, <strong>0</strong> = всё остальное.</p>
+
+    <h3>Шаг 7 — Раскрасьте маску</h3>
+    <ol>
+        <li>Правый клик по слою → <strong>Свойства → Символика</strong>.</li>
+        <li>Тип отображения: <strong>Палитра / уникальные значения</strong> (Paletted / Unique values).</li>
+        <li>Нажмите <strong>«Классифицировать»</strong>.</li>
+        <li>Назначьте цвета: <strong>0</strong> — серый, <strong>1</strong> — зелёный.</li>
+        <li>Нажмите <strong>OK</strong>.</li>
+    </ol>
+
+    <h3>Шаг 8 — Поэкспериментируйте с порогом</h3>
+    <p>Попробуйте повторить Шаг 6 с другими пороговыми значениями: <strong>0.2</strong>, <strong>0.4</strong>, <strong>0.5</strong>. Сравните результаты.</p>
+
+    <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <strong>Для размышления:</strong> при каком пороге результат лучше всего соответствует реальности? Есть ли «правильное» значение, или это зависит от задачи исследователя?
+    </div>
+
+    <hr>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- БОНУС 1                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <span class="section-badge amber">Бонус 1</span>
+    <h2>Плагин Value Tool</h2>
+
+    <p>Если осталось время — установим плагин, который показывает значения всех каналов при наведении курсора на карту.</p>
+    <ol>
+        <li>Меню <strong>Модули → Управление и установка модулей</strong>.</li>
+        <li>В строке поиска введите <strong>Value Tool</strong>.</li>
+        <li>Нажмите <strong>«Установить»</strong>.</li>
+        <li>После установки включите панель: <strong>Вид → Панели → Value Tool</strong>.</li>
+    </ol>
+
+    <p><strong>Задание:</strong> наведите курсор на разные объекты — вода, лес, поле, застройка, дорога — и запишите значения каналов B02, B03, B04, B08 для каждого типа. Видите закономерности?</p>
+
+    <hr>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- БОНУС 2                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <span class="section-badge purple">Бонус 2</span>
+    <h2>Индекс застройки NDBI</h2>
+
+    <p><strong>NDBI</strong> (Normalized Difference Built-up Index) — индекс, который выделяет застроенные территории и голый грунт. Использует коротковолновый инфракрасный канал B11 (SWIR) из папки <strong>R20m</strong>.</p>
+
+    <h3>Шаг 1 — Загрузите канал B11</h3>
+    <p>Перетащите в проект файл <strong>B11</strong> из папки <strong>R20m</strong>.</p>
+
+    <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <strong>Обратите внимание:</strong> канал B11 имеет разрешение 20 метров, а B08 — 10 метров. QGIS отобразит их вместе, но пиксели B11 будут крупнее. Для учебных целей это допустимо.
+    </div>
+
+    <h3>Шаг 2 — Рассчитайте NDBI</h3>
+    <p>Откройте <strong>Растровый калькулятор</strong> и введите:</p>
+
+    <div class="formula purple">
+        ("B11@1" - "B08@1") / ("B11@1" + "B08@1")
+    </div>
+
+    <p>Выходной файл: <strong>NDBI_Tver.tif</strong>.</p>
+
+    <h3>Шаг 3 — Раскрасьте и сравните</h3>
+    <p>Раскрасьте NDBI аналогично NDVI (псевдоцветное отображение). Используйте <strong>MapSwipe Tool</strong>, чтобы сравнить NDVI и NDBI шторкой: поместите NDBI выше NDVI в панели слоёв и активируйте плагин.</p>
+
+    <div class="callout tip">
+        <span class="callout-icon">💡</span>
+        <strong>Что наблюдаем:</strong> там, где NDVI высокий (растительность), NDBI низкий — и наоборот. Тверь «проступает» на карте NDBI как область высоких значений.
+    </div>
+
+    <hr>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- ИТОГИ                                           -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <div class="summary-box">
+        <h3>Что мы узнали</h3>
+        <ol>
+            <li>Познакомились со структурой данных Sentinel-2 и мультиспектральными каналами.</li>
+            <li>Собрали цветные изображения из отдельных каналов (естественные и ложные цвета).</li>
+            <li>Рассчитали вегетационный индекс NDVI и увидели, как из снимка извлекается тематическая информация.</li>
+            <li>Выполнили пороговую классификацию и поняли, что «классификация» — это решение исследователя.</li>
+        </ol>
+        <p style="margin-top: 0.75rem; color: var(--text-secondary);">Все эти операции — базовые приёмы дистанционного зондирования, которые применяются в самых разных задачах: от мониторинга лесов и сельского хозяйства до городского планирования.</p>
+    </div>
+
+</main>
+
+</body>
+</html>
